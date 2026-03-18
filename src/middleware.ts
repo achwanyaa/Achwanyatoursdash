@@ -1,8 +1,5 @@
-// middleware.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
-const PUBLIC_PATHS = ['/', '/auth/login', '/auth/signup', '/auth/callback']
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -26,46 +23,40 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
-  // 1. Unauthenticated → redirect to login (except public paths)
-  if (!user && !PUBLIC_PATHS.some(p => path.startsWith(p))) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
-
-  if (!user) return response
-
-  // 2. Fetch subscription in one query
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('is_active, current_period_end, tier')
-    .eq('user_id', user.id)
-    .single()
-
-  // 3. Trial/subscription expired → lock dashboard (except upgrade page)
-  const expired = sub && (
-    !sub.is_active ||
-    new Date(sub.current_period_end) < new Date()
-  )
-
-  if (expired && path.startsWith('/dashboard') && path !== '/dashboard/upgrade') {
-    return NextResponse.redirect(new URL('/dashboard/upgrade', request.url))
-  }
-
-  // 4. Admin guard
-  if (path.startsWith('/admin')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
+  // Redirect authenticated users away from login
+  if (path === '/login') {
+    if (user) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
+    return response
+  }
+
+  // Dashboard routing
+  if (path.startsWith('/dashboard')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    return response
+  }
+
+  // Admin routing
+  if (path.startsWith('/admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    
+    // Check if user is Edward (Admin)
+    const adminUserId = process.env.NEXT_PUBLIC_ADMIN_USER_ID
+    if (!adminUserId || user.id !== adminUserId) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+    
+    return response
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/login'],
 }

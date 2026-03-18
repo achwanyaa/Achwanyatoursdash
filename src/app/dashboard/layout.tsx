@@ -1,6 +1,7 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { EDWARD_WA } from '@/lib/whatsapp'
 
 export default async function DashboardLayout({
   children,
@@ -8,102 +9,100 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = createServerClient()
-
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
 
-  // Fetch profile for display name
+  if (!user) redirect('/login')
+
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, company_name')
+    .select('full_name, plan_type, plan_expires_at')
     .eq('id', user.id)
     .single()
 
-  // Fetch subscription for banner
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  const displayName = profile?.full_name || profile?.company_name || user.email
-
-  const isExpired = subscription && (
-    !subscription.is_active ||
-    new Date(subscription.current_period_end) < new Date()
-  )
+  const isExpired = profile && new Date(profile.plan_expires_at) < new Date()
+  const expiresDate = profile ? new Date(profile.plan_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sticky top nav */}
-      <nav className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
-                <span className="text-white font-bold text-xs">A3T</span>
-              </div>
-              <span className="font-semibold text-gray-900 hidden sm:inline">Dashboard</span>
-            </Link>
-
-            <div className="flex items-center gap-1">
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-              >
-                Tours
-              </Link>
-              <Link
-                href="/dashboard/book"
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-              >
-                Book a Shoot
-              </Link>
-              <Link
-                href="/dashboard/leads"
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-              >
-                Leads
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 hidden sm:inline">{displayName}</span>
-            <form action="/auth/signout" method="GET">
-              <button
-                type="submit"
-                className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-red-600 border border-gray-300 rounded-md hover:border-red-300 transition-colors"
-              >
-                Sign Out
-              </button>
-            </form>
-          </div>
+    <div className="min-h-screen bg-[#0A0A0A] text-[#E8E3D9] flex flex-col md:flex-row">
+      
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-[220px] border-r border-[#1E1E1E] bg-[#0A0A0A] h-screen sticky top-0">
+        <div className="p-6">
+          <h1 className="text-xl font-serif text-[#C9A84C]">Achwanya Tours</h1>
         </div>
-      </nav>
+        
+        <nav className="flex-1 px-4 space-y-2">
+          <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#141414] transition-colors">
+            <span>📊</span> Overview
+          </Link>
+          <Link href="/dashboard#tours" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#141414] transition-colors">
+            <span>🏠</span> My Tours
+          </Link>
+          <Link href="/dashboard/leads" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#141414] transition-colors">
+            <span>📋</span> Leads
+          </Link>
+          <Link href="/dashboard/analytics" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#141414] transition-colors">
+            <span>📈</span> Analytics
+          </Link>
+        </nav>
 
-      {/* Subscription Banner */}
-      {isExpired && (
-        <div className="bg-red-50 border-b border-red-200">
-          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-red-800 font-medium">⚠️ Your subscription has expired</span>
-              <span className="text-red-600 text-sm hidden sm:inline">— Upgrade to continue accessing your tours</span>
-            </div>
-            <Link
-              href="/dashboard/upgrade"
-              className="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors"
+        <div className="p-4 border-t border-[#1E1E1E]">
+          <div className="px-3 py-3 mb-2 rounded-lg bg-[#141414] border border-[#1E1E1E] text-xs">
+            <p className="font-semibold text-[#E8E3D9] mb-1">{profile?.full_name}</p>
+            <p className="text-gray-400 capitalize">Plan: {profile?.plan_type}</p>
+            <p className={`mt-1 ${isExpired ? 'text-red-400' : 'text-gray-400'}`}>
+              Expires: {expiresDate}
+            </p>
+          </div>
+          <a href="/api/auth/signout" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-[#141414] transition-colors w-full">
+            <span>🚪</span> Sign Out
+          </a>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen relative pb-16 md:pb-0">
+        {/* Expiry Banner */}
+        {isExpired && (
+          <div className="bg-red-950/30 border-b border-red-900 px-4 py-3 flex sm:items-center flex-col sm:flex-row justify-between gap-3 text-sm">
+            <p className="text-red-200">
+              <span className="font-semibold text-red-400">⚠️ Plan Expired on {expiresDate}.</span> Your tours are currently inactive.
+            </p>
+            <a 
+              href={EDWARD_WA}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-4 py-1.5 bg-[#C9A84C] hover:bg-[#B39543] text-[#0A0A0A] font-semibold rounded-md transition-colors text-center whitespace-nowrap"
             >
-              Upgrade Now
-            </Link>
+              Contact to Renew
+            </a>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Page content */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        {children}
-      </main>
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#141414] border-t border-[#1E1E1E] flex justify-around items-center h-16 px-2 z-50">
+        <Link href="/dashboard" className="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-[#C9A84C]">
+          <span className="text-xl mb-1">📊</span>
+        </Link>
+        <Link href="/dashboard#tours" className="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-[#C9A84C]">
+          <span className="text-xl mb-1">🏠</span>
+        </Link>
+        <Link href="/dashboard/leads" className="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-[#C9A84C]">
+          <span className="text-xl mb-1">📋</span>
+        </Link>
+        <Link href="/dashboard/analytics" className="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-[#C9A84C]">
+          <span className="text-xl mb-1">📈</span>
+        </Link>
+        <a href="/api/auth/signout" className="flex flex-col items-center justify-center w-full h-full text-gray-400 hover:text-white">
+          <span className="text-xl mb-1">🚪</span>
+        </a>
+      </nav>
+      
     </div>
   )
 }

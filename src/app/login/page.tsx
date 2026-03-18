@@ -4,142 +4,96 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
-import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const supabase = createClient()
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    setMessage(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password,
-      })
-
-      if (error) throw error
-
-      router.push('/dashboard')
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during login')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSignUp = async () => {
-    setLoading(true)
-    setError('')
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
         options: {
-          data: {
-            full_name: email.split('@')[0], // Simple default
-          }
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       })
 
       if (error) throw error
 
-      // Create profile
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await supabase.from('profiles').insert({
-          id: user.id,
-          email: user.email!,
-          full_name: user.user_metadata.full_name || '',
-          plan_type: 'trial',
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-        })
-      }
-
-      setError('Check your email to confirm your account')
+      setMessage({
+        type: 'success',
+        text: 'Check your email — we sent you a sign-in link.'
+      })
     } catch (error: any) {
-      setError(error.message || 'An error occurred during sign up')
+      setMessage({
+        type: 'error',
+        text: error.message || 'Failed to send login link'
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo/Wordmark */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Achwanya 3D Tours</h1>
-          <p className="text-gray-600 mt-2">Nairobi's Premier Virtual Tour Service</p>
+          <h1 className="text-3xl font-serif text-[#C9A84C] tracking-tight">Achwanya 3D Tours</h1>
         </div>
 
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-6">Sign In</h2>
-          
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <button
-                onClick={handleSignUp}
-                disabled={loading}
-                className="text-orange-500 hover:text-orange-600 font-medium"
-              >
-                Sign up for free trial
-              </button>
-            </p>
-          </div>
+        <Card className="bg-[#141414] border-[#1E1E1E]">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-2xl font-serif text-[#E8E3D9]">Welcome back.</CardTitle>
+            <CardDescription className="text-gray-400 mt-2">
+              Enter your email to receive a sign-in link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {message?.type === 'success' ? (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                <p className="text-green-400 font-medium">{message.text}</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full border-[#1E1E1E] text-[#E8E3D9] hover:bg-[#1E1E1E]"
+                  onClick={() => setMessage(null)}
+                >
+                  Try another email
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <Input
+                    type="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="bg-[#0A0A0A] border-[#1E1E1E] text-[#E8E3D9] placeholder:text-gray-600 focus:border-[#C9A84C] focus:ring-[#C9A84C]"
+                  />
+                </div>
+                {message?.type === 'error' && (
+                  <p className="text-red-400 text-sm">{message.text}</p>
+                )}
+                <Button 
+                  type="submit" 
+                  className="w-full bg-[#C9A84C] hover:bg-[#B39543] text-[#0A0A0A] font-semibold transition-colors"
+                  disabled={loading || !email}
+                >
+                  {loading ? 'Sending link...' : 'Send Link'}
+                </Button>
+              </form>
+            )}
+          </CardContent>
         </Card>
-
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>📧 support@achwanya.co.ke</p>
-          <p>📍 Nairobi, Kenya</p>
-        </div>
       </div>
     </div>
   )
