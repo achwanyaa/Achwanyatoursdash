@@ -10,6 +10,8 @@ interface Tour {
   id: string
   realsee_url: string
   realsee_id: string
+  profile_id: string | null
+  status: string
   properties: {
     title: string
     address: string

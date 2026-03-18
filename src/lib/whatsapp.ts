@@ -22,6 +22,28 @@ export function buildWhatsAppUrl(opts: WhatsAppLinkOptions): string {
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(body)}`
 }
 
+interface BookingConfirmOptions {
+  agentPhone: string
+  agentName: string
+  propertyName: string
+  preferredDate: string
+}
+
+/**
+ * Build a wa.me deep-link for admin to confirm a booking with an agent.
+ */
+export function buildBookingConfirmUrl(opts: BookingConfirmOptions): string {
+  const cleaned = opts.agentPhone.replace(/\D/g, '')
+  const dateStr = new Date(opts.preferredDate).toLocaleDateString('en-KE', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const body = `Hi ${opts.agentName}, your photo shoot booking for *${opts.propertyName}* on *${dateStr}* has been confirmed. We'll be there as scheduled! — Achwanya 3D Tours`
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(body)}`
+}
+
 /**
  * Server-side: store lead in Supabase AND trigger WhatsApp notification
  * to the property owner (via a Supabase Edge Function or Make webhook).

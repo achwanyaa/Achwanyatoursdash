@@ -18,12 +18,15 @@ export async function POST(req: Request) {
 
   // Trigger edge function / webhook to forward lead to owner's WhatsApp
   // (via Make.com scenario, Supabase Edge Function, or direct Twilio/Vonage call)
-  if (process.env.LEAD_WEBHOOK_URL) {
-    await fetch(process.env.LEAD_WEBHOOK_URL, {
+  const webhookUrl = process.env.LEAD_WEBHOOK_URL
+  if (webhookUrl) {
+    await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tourId, ownerId, name, phone, message }),
     }).catch(() => {}) // non-blocking — lead is already stored
+  } else if (process.env.NODE_ENV === 'development') {
+    console.warn('[leads] LEAD_WEBHOOK_URL not set — lead saved to DB but not forwarded')
   }
 
   return NextResponse.json({ ok: true })
